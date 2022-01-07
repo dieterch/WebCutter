@@ -39,6 +39,16 @@ class CutterInterface:
 		else:
 			return os.path.dirname(__file__) + "/mnt/" + self._filename(movie)
 
+	def _cutfilename(self,movie):
+		"""
+		the movie cut filename
+		"""
+		m = PlexInterface.movie_rec(movie)
+		if len(m['locations']) > 1:
+			raise ValueError('cannot handle multiple Files in movie folder')
+		else:
+			return m['locations'][0].split('/')[-1].split('.')[0] + ' cut.ts'
+
 	def _cutname(self,movie):
 		"""
 		path to the mounted movie cut file (inplace = False)
@@ -47,7 +57,7 @@ class CutterInterface:
 		if len(m['locations']) > 1:
 			raise ValueError('cannot handle multiple Files in movie folder')
 		else:
-			return os.path.dirname(__file__) + "/mnt/" + self._filename(movie).split('.')[0] + ' cut.ts'
+			return os.path.dirname(__file__) + "/mnt/" + self._cutfilename(movie)
 
 	def mount(self, movie):
 		m = PlexInterface.movie_rec(movie)
@@ -81,9 +91,6 @@ class CutterInterface:
 		exc_lst = [self._ffmpeg_binary,"-ss", ftime, "-i", f"{self._pathname(movie)}", 
 			"-vframes", "1", "-q:v", "2", f"{target}", "-hide_banner", "-loglevel", "fatal", 
 			"-max_error_rate","1","-y" ]
-		#print()
-		#print(" ".join(exc_lst))
-		#print()
 		self.mount(movie)
 		try:
 			res = subprocess.check_output(exc_lst)
@@ -95,12 +102,23 @@ class CutterInterface:
 			self.umount()
 			return frame_name
 
+	def _apsc(self,movie):
+		#check ob .ap und Datei existiert.
+		try:
+			self.mount(movie)
+			return os.path.exists(self._pathname(movie)+'.ap')
+		except Exception as e:
+			print(str(e))
+		finally:
+			self.umount()
+
 	def _reconstruct_apsc(self, movie):
 		print()
 		print(f"'{self._filename(movie)}', *.ap und *.sp Files werden rekonstruiert.")
 		exc_lst = [self._reconstruct_apsc_binary,self._pathname(movie)]
 		try:
 			res = subprocess.check_output(exc_lst)
+			res = res.decode('utf-8')
 			return res
 		except subprocess.CalledProcessError as e:
 			raise e
@@ -125,12 +143,12 @@ class CutterInterface:
 	def cut(self, movie, ss, to, inplace=False):
 		t0 = time.time()
 		t1 = time.time() #initialize t1, in case .ap files exist ...
-		restxt = 'cut started ...\n'
+		restxt = 'cut started ... \n'
 		self.mount(movie)
 		#check ob .ap und .sc Dateien existieren, wenn nicht, erzeugen
-		restxt += f"{self._pathname(movie)} exists ? {os.path.exists(self._pathname(movie))}\n"
-		restxt += f"{self._pathname(movie)+'.ap'} exists ? {os.path.exists(self._pathname(movie)+'.ap')}\n"
-		restxt += f"{self._pathname(movie)+'.sc'} exists ? {os.path.exists(self._pathname(movie)+'.sc')}\n\n"
+		restxt += f"{self._filename(movie)} exists ? {os.path.exists(self._pathname(movie))}\n"
+		restxt += f"{self._filename(movie)+'.ap'} exists ? {os.path.exists(self._pathname(movie)+'.ap')}\n"
+		restxt += f"{self._filename(movie)+'.sc'} exists ? {os.path.exists(self._pathname(movie)+'.sc')}\n\n"
 
 		if ((inplace == False) and (os.path.exists(self._cutname(movie)))):
 			try:
@@ -138,14 +156,14 @@ class CutterInterface:
 			except exception as e:
 				print(str(e))
 				raise e
-			restxt += f"{self._cutname(movie)} existed already, file deleted ...\n\n"
+			restxt += f"{self._cutfilename(movie)} existed already, file deleted ... \n\n"
 
 		if not os.path.exists(self._pathname(movie)+'.ap'):
 			try:
 				res = self._reconstruct_apsc(movie)
 				t1 = time.time()
 				restxt += f"Ergebnis Reconstruct: {res}\n"
-				restxt += f"ReSt Zeit: {(t1 - t0):7.2f} sec.\n\n"
+				restxt += f"ReSt Zeit: {(t1 - t0):7.0f} sec.\n\n"
 			except subprocess.CalledProcessError as e:
 				raise e
 		
@@ -153,9 +171,9 @@ class CutterInterface:
 			res = self._mcut(movie,ss,to,inplace)
 			t2 = time.time()
 			restxt += f"Ergebnis Mcut: {res}\n"
-			restxt += f"Mcut Zeit: {(t2 - t1):7.2f} sec.\n"
-			restxt += f"Ges. Zeit: {(t2 - t0):7.2f} sec.\n\n"
-			print(f"elapsed time: {(t2 - t0):7.2f} sec.")
+			restxt += f"Mcut Zeit: {(t2 - t1):7.0f} sec.\n"
+			restxt += f"Ges. Zeit: {(t2 - t0):7.0f} sec.\n\n"
+			print(f"elapsed time: {(t2 - t0):7.0f} sec.")
 			return restxt
 		except subprocess.CalledProcessError as e:
 			raise e

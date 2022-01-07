@@ -7,13 +7,12 @@
     }
     const str2pos = (st) => {
         erg = parseInt(String(st).slice(0,2))*3600 + parseInt(String(st).slice(3,5))*60 + parseInt(String(st).slice(-2))
-        //console.log(`str2pos(${st}) = ${erg}`)
         return erg
     }
-        /*p = str2pos('01:25:12')
-    console.log(p, pos2str(p))*/
-    
-    // Vue Komponenten
+
+    let myModalSlot = new VueModalSlot()
+
+    // Vue App
     const vueApp = new Vue({
         el: '#vueApp',
         data: {
@@ -22,15 +21,23 @@
             movies: [],
             lmovie: '',
             lmovie_info: { duration: 0 },
+            lmovie_cut_info: { 
+                    apsc: false,
+                    eta: 0,
+                    eta_cut:0,
+                    eta_apsc: 0
+                },
+            eta_counter: 0,
+            eta_counter_id: 0,
             lpos: 0,
             t0: "00:00:00",
             t0_valid: false,
             t1: "01:00:00",
             t1_valid: false,
             inplace: false,            
-            //bl_class: "btn btn-outline-dark btn-sm col mt-0 me-1",
-            //br_class: "btn btn-outline-dark btn-sm col mt-0 ms-1",
-            pic_name: ''
+            pic_name: '',
+            result_available: false,
+            result:''
         },
         computed: {
             totalsections() {
@@ -43,6 +50,7 @@
                 get() {
                     this.load_movie_info()
                     this.reset_t0_t1()
+                    this.lpos = 0
                     return this.lmovie
                 },
                 set(val) {
@@ -53,6 +61,10 @@
             cut_ok() {
                 return this.t0_valid & this.t1_valid
             },         
+            duration_cut() {
+                    //console.log(`t1pos=${str2pos(this.t1)} t0pos=${str2pos(this.t0)}`)
+                    return Math.floor((str2pos(this.t1) - str2pos(this.t0)) / 60 ) 
+            },
             pos: {
                 get() {
                     //console.log("pos getter ", this.lpos)
@@ -66,12 +78,12 @@
             },
             bleft() {
                 return [
+                    {name:"S", val:0, type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 me-1"},
                     {name:"S15'", val:15*60, type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 me-1"},
                     {name:"-30'", val:-1800, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
                     {name:"-10'", val:-600, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
                     {name:"-5'", val:-5*60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
                     {name:"-1'", val:-60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
-                    {name:'-10"', val:-10, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 me-1"},
                     {name:'-5"', val:-5, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 me-1"},
                     {name:'-1"', val:-1, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 me-1"},
                 ]
@@ -80,16 +92,22 @@
                 return [
                     {name:'+1"', val:1, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 ms-1"},
                     {name:'+5"', val:5, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 ms-1"},                    
-                    {name:'+10"', val:10, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 ms-1"},
                     {name:"+1'", val:60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"+5'", val:5*60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"+10'", val:600, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"+30'", val:1800, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"E15'", val:this.pos_from_end(15*60), type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 ms-1"},
+                    {name:"E", val:this.pos_from_end(0), type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 ms-1"},
                 ]
             }
         },
         methods: {
+            test() {
+
+                this.movie_cut_info()
+                myModalSlot.show()
+
+            },
             toggle_inplace() {
                 this.inplace = !this.inplace
             },
@@ -108,13 +126,22 @@
                     });
                 },
             loadmovies() {
-                fetch(`${Vue.prototype.$host}/movies`)
+                axios
+                    .get(`${Vue.prototype.$host}/movies`)
+                    .then(response => {
+                        //console.log(response.data)
+                        this.movies = response.data.movies;
+                        this.lmovie = response.data.movie;
+                    }).catch( error => { 
+                        console.log('error: ' + error); 
+                    });
+                /*fetch(`${Vue.prototype.$host}/movies`)
                 .then(response => response.json())
                 .then(json => {
                     //console.log(json)
                     this.movies = json.movies;
                     this.lmovie = json.movie;
-                })
+                })*/
             },
             load_movie_info() {
                 return axios.post(`${Vue.prototype.$host}/movie_info`,
@@ -130,6 +157,16 @@
                 }).catch( error => { 
                     console.log('error: ' + error); 
                 });
+            },
+            movie_cut_info() {
+                axios
+                    .get(`${Vue.prototype.$host}/movie_cut_info`)
+                    .then(response => {
+                        this.lmovie_cut_info = response.data;
+                        //console.log("in movie_cut_info", this.lmovie_cut_info)
+                    }).catch( error => { 
+                        console.log('error: ' + error); 
+                    });
             },
             reset_t0_t1() {
                 this.t0 = "00:00:00"
@@ -176,10 +213,23 @@
                 });
             },
             docut() {
-                msg = `Cut '${this.section}' - '${this.lmovie}' - ${this.t0} In - ${this.t1} Out`
+                this.movie_cut_info()
+                msg = 
+`
+Cut:
+                
+section: '${this.section}'
+movie: '${this.lmovie}'
+In: ${this.t0}
+Out: ${this.t1}
+Inplace: ${this.inplace}
+Reconstruct: ${!this.lmovie_cut_info.ap_available}
+`
                 console.log(msg)
-                if (confirm(msg)) {
-                    //alert('go')
+                    this.result_available = false
+                    this.eta_counter = 0
+                    myModalSlot.show()
+                    this.eta_counter_id = setInterval(function myTimer() { this.eta_counter += 1 }.bind(this), 1000);
                     return axios.post(`${Vue.prototype.$host}/cut`,
                         {   
                             section: this.section, 
@@ -190,23 +240,32 @@
                         },
                         { headers: { 'Content-type': 'application/json',}}
                     ).then((response) => {
-                        alert(response.data.result)
+                        clearInterval(this.eta_counter_id)
+                        this.result = response.data.result
+                        this.result_available = true
                     }).catch( error => { 
                         console.log('error: ' + error); 
                     });
-                } else {
-                    alert('stop')
-                }
             }
         },
         created() {
-            fetch(`${Vue.prototype.$host}/sections`)
+            axios
+            .get(`${Vue.prototype.$host}/sections`)
+            .then(response => {
+                //console.log(response.data)
+                this.sections = response.data.sections;
+                this.section = response.data.section;
+                this.loadmovies()
+            }).catch( error => { 
+                console.log('error: ' + error); 
+            });
+            /* fetch(`${Vue.prototype.$host}/sections`)
                 .then(response => response.json())
                 .then(json => {
                     this.sections = json.sections;
                     this.section = json.section
                     this.loadmovies()
-                })
+                }) */
         },
         delimiters: ['[[',']]']
     })

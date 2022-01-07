@@ -2,6 +2,7 @@ from flask import Flask, request, redirect, url_for, render_template
 from webcutter.dplex import PlexInterface
 from webcutter.dcut import CutterInterface
 import os
+import time
 from pprint import pprint as pp
 
 fileserver = '192.168.15.10'
@@ -90,6 +91,16 @@ def updateme():
         update_section(section_name)
         return redirect(url_for('index'))
 
+@app.route("/movie_cut_info")
+def movie_cut_info():
+    global selection
+    m = selection['movie']
+    dmin = m.duration / 60000
+    apsc = cutter._apsc(m)
+    eta_apsc = int((0.7 if not apsc else 0) * dmin)
+    eta_cut =  int(0.93 * dmin)
+    return { 'movie': m.title, 'eta': eta_apsc + eta_cut, 'eta_cut': eta_cut, 'eta_apsc': eta_apsc, 'apsc' : apsc }
+
 @app.route("/cut", methods=['POST'])
 def cut():
     global selection
@@ -103,9 +114,12 @@ def cut():
         ss = request.json['ss']
         to = request.json['to']
         inplace = request.json['inplace']
-        print(f"cutter.cut({m.title},{ss},{to},inplace={inplace}) start ...")
+        res = f"cutter.cut({m.title},{ss},{to},inplace={inplace})"
+        print(res)
         try:
             res = cutter.cut(m,ss,to,inplace)
+            m.analyze()
+            #time.sleep(10)
             return { 'result': res }
         except Exception as e:
             return { 'result': str(e) }
@@ -119,6 +133,10 @@ def index():
 @app.route("/test")
 def test():
     return render_template('test.html')
+
+@app.route("/testmodal")
+def testmodal():
+    return render_template('testmodal.html')
 
 if __name__ == '__main__':
     update_section('Plex Recordings')
