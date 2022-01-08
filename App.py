@@ -1,9 +1,11 @@
-from flask import Flask, request, redirect, url_for, render_template
+from flask import Flask, request, redirect, url_for, render_template, send_file
 from webcutter.dplex import PlexInterface
 from webcutter.dcut import CutterInterface
 import os
 import time
+import subprocess
 from pprint import pprint as pp
+from pprint import pformat as pf
 
 fileserver = '192.168.15.10'
 baseurl = 'http://192.168.15.10:32400'
@@ -11,124 +13,157 @@ token = '7YgcyPLqGVM-PVxq2QVo'
 
 plex = PlexInterface(baseurl,token)
 cutter = CutterInterface(fileserver)
+
 app= Flask(__name__)
 
+initial_section = plex.sections[0]
+initial_movie_key = 5
+initial_movie = initial_section.recentlyAdded()[initial_movie_key]
 selection = { 
-    'section'  : 'Plex Recordings',
     'sections' : [s for s in plex.sections if s.type == 'movie'],
+    'section' : initial_section,
+    'movies' : initial_section.recentlyAdded(),
+    'movie' : initial_movie,
     'pos_time' : '00:00:00',
-    'frame'  : '' 
+    'frame'  : 'frame.jpg',
+    'eta' : 0 
     }
 
-def update_section(section_name):
+# section related stuff
+def _update_section(section_name):
     global selection
-    sec = plex.server.library.section(section_name)
-    mvs = [m for m in sec.recentlyAdded()]
-    default_movie = mvs[5]
-    selection.update({ 'section' : sec, 'movies' : mvs, 'movie' : default_movie })
+    #print(f"\n{selection['section'].title} != {section_name}, {(selection['section'].title != section_name)}") # beim ersten Aufruf kommt der Funktionsname zurück, nicht das Ergebnis => if clause ...
+    if ((selection['section'].title != section_name)): 
+        sec = plex.server.library.section(section_name)
+        mvs = sec.recentlyAdded()
+        default_movie = mvs[initial_movie_key]
+        selection.update({ 'section' : sec, 'movies' : mvs, 'movie' : default_movie })
+        #print(f"_update_selection if clause:\n{pf({k:v for k,v in selection.items() if k in ['section','movie','pos','frame']})}\n")
+    else:
+        pass
+        #print(f"_update_selection else clause:\n{pf({k:v for k,v in selection.items() if k in ['section','movie','pos','frame']})}\n")
     return selection['section']    
 
-def update_movie(movie_name):
+@app.route("/update_section", methods=['POST'])
+def update_section():
     global selection
-    m = [m for m in selection['movies'] if m.title == movie_name ] if movie_name != None else None
-    selection['movie'] = m[0] if m else selection['movie']
-    return selection['movie']
+    if request.method == 'POST':
+        section_name = request.json['section']
+        _update_section(section_name)        
+        print(f"update_section: {pf(request.json)}")
+        return redirect(url_for('index'))
 
 @app.route("/sections")
-def sections():
+def get_sections():
     global selection
     return { 'sections': [s.title for s in selection['sections']], 'section': selection['section'].title }
 
+# movie related stuff
+def _update_movie(movie_name):
+    global selection
+    sel_movie = selection['movies'][initial_movie_key]
+    if movie_name != '':
+        lmovie = [m for m in selection['movies'] if m.title == movie_name]
+        if lmovie:
+            sel_movie = lmovie[0]
+    #print(sel_movie)
+    selection['movie'] = sel_movie
+    return selection['movie']
+
 @app.route("/movies")
-def movies():
+def get_movies():
     global selection
     return { 'movies': [m.title for m in selection['movies']], 'movie': selection['movie'].title }
 
 @app.route("/movie_info", methods=['POST'])
-def movie_info():
+def set_movie_get_info():
     global selection
     if request.method == 'POST':
-        #pp(request.json)
+        section_name = request.json['section']
         movie_name = request.json['movie']
         if movie_name != '':
-            m = update_movie(movie_name)
-            m_i = plex.movie_rec(m)
-            #pp(m_i)
-            return { 'movie_info': m_i }
+            s = _update_section(section_name)
+            m = _update_movie(movie_name)
+            m_info = { 'movie_info': plex.movie_rec(m) }
         else:
-            return { 'movie_info': { 'duration':0 } }
+            if section_name == '':
+                s = _update_section('Plex Recordings')
+            m = _update_movie('')
+            m_info = { 'movie_info': plex.movie_rec(m) }
+            #m_info = { 'movie_info': { 'duration': 0 } }
+        print(f"\nmovie_info: {request.json} -> \n{pf(m_info)}")
+        return m_info       
 
-@app.route("/load_pic", methods=['POST'])
-def load_pic():
+@app.route("/frame", methods=['POST'])
+def get_frame():
     global selection
     if request.method == 'POST':
-        print("in '/load_pic', nach if request ...:")
-        pp(request.json)
         pos_time = request.json['pos_time']
         movie_name = request.json['movie_name']
-        m = update_movie(movie_name)
-        if (pos_time != '' and movie_name != ''):
+        m = _update_movie(movie_name)
+        try:
             pic_name = cutter.frame(m ,pos_time ,os.path.dirname(__file__) + "/static/")
-            print("in '/load_pic', nach cutter. ...:")
-            ret = url_for('static', filename=pic_name)
-            pp(ret)
-            return { 'pic_name': ret }
-        else: 
-            return { 'pic_name': '' }
+            ret = { 'frame': url_for('static', filename=pic_name) }
+        except subprocess.CalledProcessError as e:
+            print(f"\nframe throws error:\n{str(e)}\n") 
+            ret = { 'frame': url_for('static', filename='error.jpg') }
+        finally:
+            print(f"frame: {request.json} -> {ret}")
+            return ret
 
 @app.route("/pos")
-def pos():
+def get_pos():
     global selection
     return { 'pos': selection['pos_time'] }
 
-@app.route("/update", methods=['POST'])
-def updateme():
-    global selection
-    if request.method == 'POST':
-        print("in '/update':")
-        pp(request.json)
-        section_name = request.json['section']
-        update_section(section_name)
-        return redirect(url_for('index'))
-
 @app.route("/movie_cut_info")
-def movie_cut_info():
+def get_movie_cut_info():
     global selection
     m = selection['movie']
     dmin = m.duration / 60000
     apsc = cutter._apsc(m)
-    eta_apsc = int((0.7 if not apsc else 0) * dmin)
-    eta_cut =  int(0.93 * dmin)
-    return { 'movie': m.title, 'eta': eta_apsc + eta_cut, 'eta_cut': eta_cut, 'eta_apsc': eta_apsc, 'apsc' : apsc }
+    eta_apsc = int((0.5 if not apsc else 0) * dmin)
+    eta_cut =  int(0.7 * dmin)
+    eta = eta_apsc + eta_cut
+    selection['eta'] = eta
+    #print(f"ETA={eta}")
+    return { 'movie': m.title, 'eta': eta, 'eta_cut': eta_cut, 'eta_apsc': eta_apsc, 'apsc' : apsc }
 
 @app.route("/cut", methods=['POST'])
-def cut():
+def do_cut():
     global selection
     if request.method == 'POST':
-        print("in '/cut':")
-        pp(request.json)
         section_name = request.json['section']
-        s = update_section(section_name)
         movie_name = request.json['movie_name']
-        m = update_movie(movie_name)
         ss = request.json['ss']
         to = request.json['to']
         inplace = request.json['inplace']
-        res = f"cutter.cut({m.title},{ss},{to},inplace={inplace})"
+        s = _update_section(section_name)
+        m = _update_movie(movie_name)        
+        res = f"From section '{s}', cut '{m.title}', In {ss}, Out {to}, inplace={inplace}"
         print(res)
         try:
+            time.sleep(1)
             res = cutter.cut(m,ss,to,inplace)
             m.analyze()
             #time.sleep(10)
+            eta_est = selection['eta']
+            res += f"ETA Estimation: {eta_est}"
             return { 'result': res }
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
+            print(str(e))
             return { 'result': str(e) }
+
 
 @app.route("/")
 def index():
     global selection
     host = request.headers.get('Host')
     return render_template('webcutter/index.html', host=host)
+
+@app.route("/apple-touch-icon.png")
+def get_icon():
+    return send_file('static/apple-touch-icon.png', mimetype='image/png')
 
 @app.route("/test")
 def test():
@@ -138,6 +173,15 @@ def test():
 def testmodal():
     return render_template('testmodal.html')
 
+firstrun = True
 if __name__ == '__main__':
-    update_section('Plex Recordings')
+    if firstrun:
+        firstrun = False
+        print('''
+\033[H\033[J
+******************************************
+* WebCutter V0.01 (c)2022 Dieter Chvatal *
+******************************************
+        ''')
+    #_update_section('Plex Recordings')
     app.run(use_reloader=True, host='0.0.0.0', port=5000, debug=True)

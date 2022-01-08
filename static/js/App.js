@@ -1,4 +1,4 @@
-    // Allgemeine Funktionen
+    // Globale Funktionen
     console.log(Vue.prototype.$host)
     const zeroPad = (num, places) => String(num).padStart(places, '0')
     const pos2str = (pos) => {
@@ -20,7 +20,7 @@
             section: '',
             movies: [],
             lmovie: '',
-            lmovie_info: { duration: 0 },
+            lmovie_info: Object(),
             lmovie_cut_info: { 
                     apsc: false,
                     eta: 0,
@@ -35,7 +35,7 @@
             t1: "01:00:00",
             t1_valid: false,
             inplace: false,            
-            pic_name: '',
+            frame_name: '',
             result_available: false,
             result:''
         },
@@ -69,7 +69,7 @@
                 get() {
                     //console.log("pos getter ", this.lpos)
                     ret = pos2str(this.lpos) 
-                    this.load_pic(ret)
+                    this.get_frame(ret)
                     return ret
                 },
                 set(newValue) {
@@ -78,12 +78,12 @@
             },
             bleft() {
                 return [
-                    {name:"S", val:0, type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 me-1"},
                     {name:"S15'", val:15*60, type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 me-1"},
                     {name:"-30'", val:-1800, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
                     {name:"-10'", val:-600, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
                     {name:"-5'", val:-5*60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
                     {name:"-1'", val:-60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 me-1"},
+                    {name:'-10"', val:-10, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 me-1"},
                     {name:'-5"', val:-5, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 me-1"},
                     {name:'-1"', val:-1, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 me-1"},
                 ]
@@ -92,12 +92,12 @@
                 return [
                     {name:'+1"', val:1, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 ms-1"},
                     {name:'+5"', val:5, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 ms-1"},                    
+                    {name:'+10"', val:10, type:"rel", class:"btn btn-outline-secondary btn-sm col mt-0 ms-1"},                    
                     {name:"+1'", val:60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"+5'", val:5*60, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"+10'", val:600, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"+30'", val:1800, type:"rel", class:"btn btn-outline-info btn-sm col mt-0 ms-1"},
                     {name:"E15'", val:this.pos_from_end(15*60), type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 ms-1"},
-                    {name:"E", val:this.pos_from_end(0), type:"abs", class:"btn btn-outline-primary btn-sm col mt-0 ms-1"},
                 ]
             }
         },
@@ -111,8 +111,8 @@
             toggle_inplace() {
                 this.inplace = !this.inplace
             },
-            notifyme() {
-                return axios.post(`${Vue.prototype.$host}/update`,
+            update_section() {
+                return axios.post(`${Vue.prototype.$host}/update_section`,
                     { 
                         section: this.section
                     },
@@ -179,7 +179,7 @@
                     this.lpos += b.val
                     // console.log(this.lpos)
                     this.lpos = (this.lpos >= 0) ? this.lpos : 0
-                    this.lpos = (this.lpos <= this.lmovie_info.duration * 60) ? this.lpos : this.lmovie_info.duration * 60
+                    this.lpos = (this.lpos <= this.pos_from_end(0)) ? this.lpos : this.pos_from_end(0)
                     // console.log(this.lpos)
                 } else if (b.type == "abs") {
                     this.lpos = b.val 
@@ -193,12 +193,12 @@
                     alert("unknown type in hpos")
                 }
             },
-            pos_from_end(sec) {
-                return this.lmovie_info.duration * 60 - sec
+            pos_from_end(dsec) {
+                return Math.trunc(this.lmovie_info.duration_ms / 1000 - 1 - dsec )
             },
-            load_pic(pos) {
-                //console.log(`in load pic ... request ${pos}`)
-                return axios.post(`${Vue.prototype.$host}/load_pic`,
+            get_frame(pos) {
+                //console.log(`in load frame ... request ${pos}`)
+                return axios.post(`${Vue.prototype.$host}/frame`,
                     { 
                         pos_time: pos,
                         movie_name: this.lmovie
@@ -207,7 +207,7 @@
                     'Content-type': 'application/json',
                     }
                 }).then((response) => {
-                    this.pic_name = response.data.pic_name + '?' + String(Math.random()*100)
+                    this.frame_name = response.data.frame + '?' + String(Math.random())
                 }).catch( error => { 
                     console.log('error: ' + error); 
                 });
@@ -230,13 +230,15 @@ Reconstruct: ${!this.lmovie_cut_info.ap_available}
                     this.eta_counter = 0
                     myModalSlot.show()
                     this.eta_counter_id = setInterval(function myTimer() { this.eta_counter += 1 }.bind(this), 1000);
+                    console.log(this.lmovie_cut_info)
                     return axios.post(`${Vue.prototype.$host}/cut`,
                         {   
                             section: this.section, 
                             movie_name: this.lmovie,
                             ss: this.t0,
                             to: this.t1,
-                            inplace: this.inplace
+                            inplace: this.inplace,
+                            etaest: this.lmovie_cut_info.eta
                         },
                         { headers: { 'Content-type': 'application/json',}}
                     ).then((response) => {

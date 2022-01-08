@@ -181,7 +181,9 @@ class PlexInterface:
             'locations': movie.locations, 
             'summary':movie.summary, 
             'addedAt': movie.addedAt, 
-            'duration':movie.duration // 60000, 
+            'duration_ms': movie.duration,
+            'duration':movie.duration // 60000,
+            'duration_sec_rest': (movie.duration % 60000) // 1000, 
             'year':movie.year,
             'guid':movie.guid.split('/')[-1]
         }

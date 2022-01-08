@@ -67,19 +67,27 @@ class CutterInterface:
 			source = f"//{self._server}/{'/'.join(m['locations'][0].split('/')[2:-1])}"
 			target = os.path.dirname(__file__) + "/mnt/"
 			mount_lst = ["mount","-t","cifs", "-o", "credentials=/etc/smbcredentials", f"{source}", f"{target}"]
+#			print()
+#			print(" ".join(mount_lst))
+#			print()
 		try:
 			res = subprocess.check_output(mount_lst)
 			return res
 		except subprocess.CalledProcessError as e:
+			print(str(e))
 			raise e
 
 	def umount(self):
 		target = os.path.dirname(__file__) + "/mnt/"
 		umount_lst = ["umount","-l",f"{target}"]		
+#		print()
+#		print(" ".join(umount_lst))
+#		print()
 		try:
 			res = subprocess.check_output(umount_lst)
 			return res
 		except subprocess.CalledProcessError as e:
+			print(str(e))
 			raise e
 
 	def frame(self,movie, ftime, target = None):
