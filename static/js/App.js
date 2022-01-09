@@ -48,9 +48,15 @@
             },
             movie: {
                 get() {
-                    this.load_movie_info()
                     this.reset_t0_t1()
                     this.lpos = 0
+                    this.load_movie_info_promise()
+                    .then(response => {
+                        this.lmovie_info = response.data.movie_info                        
+                    })
+                    .catch( error => { 
+                        console.log('error: ' + error); 
+                    });
                     return this.lmovie
                 },
                 set(val) {
@@ -68,9 +74,14 @@
             pos: {
                 get() {
                     //console.log("pos getter ", this.lpos)
-                    ret = pos2str(this.lpos) 
-                    this.get_frame(ret)
-                    return ret
+                    ret = pos2str(this.lpos)
+                    this.get_frame_promise(ret)
+                        .then((response) => {
+                            this.frame_name = response.data.frame + '?' + String(Math.random())
+                        }).catch( error => { 
+                            console.log('error: ' + error); 
+                        });
+                    return ret 
                 },
                 set(newValue) {
                     this.lpos = str2pos(newValue)
@@ -103,10 +114,13 @@
         },
         methods: {
             test() {
-
-                this.movie_cut_info()
-                myModalSlot.show()
-
+                this.movie_cut_info_promise()
+                .then(response => {
+                    this.lmovie_cut_info = response.data;
+                    myModalSlot.show()
+                }).catch( error => { 
+                    console.log('error: ' + error); 
+                });
             },
             toggle_inplace() {
                 this.inplace = !this.inplace
@@ -144,15 +158,8 @@
                     }).catch( error => { 
                         console.log('error: ' + error); 
                     });
-                /*fetch(`${Vue.prototype.$host}/movies`)
-                .then(response => response.json())
-                .then(json => {
-                    //console.log(json)
-                    this.movies = json.movies;
-                    this.lmovie = json.movie;
-                })*/
             },
-            load_movie_info() {
+            load_movie_info_promise() {
                 return axios.post(`${Vue.prototype.$host}/movie_info`,
                     { 
                         section: this.section,
@@ -161,22 +168,36 @@
                     { headers: {
                     'Content-type': 'application/json',
                     }
-                }).then((response) => {
-                    this.lmovie_info = response.data.movie_info
-                }).catch( error => { 
-                    console.log('error: ' + error); 
-                });
+                })
             },
-            movie_cut_info() {
-                axios
-                    .get(`${Vue.prototype.$host}/movie_cut_info`)
-                    .then(response => {
-                        this.lmovie_cut_info = response.data;
-                        //console.log("in movie_cut_info", this.lmovie_cut_info)
-                    }).catch( error => { 
-                        console.log('error: ' + error); 
-                    });
+            // load_movie_info() {
+            //     return axios.post(`${Vue.prototype.$host}/movie_info`,
+            //         { 
+            //             section: this.section,
+            //             movie: this.lmovie
+            //         },
+            //         { headers: {
+            //         'Content-type': 'application/json',
+            //         }
+            //     }).then((response) => {
+            //         this.lmovie_info = response.data.movie_info
+            //     }).catch( error => { 
+            //         console.log('error: ' + error); 
+            //     });
+            // },
+            movie_cut_info_promise() {
+                return axios.get(`${Vue.prototype.$host}/movie_cut_info`)
             },
+            // movie_cut_info() {
+            //     axios
+            //         .get(`${Vue.prototype.$host}/movie_cut_info`)
+            //         .then(response => {
+            //             this.lmovie_cut_info = response.data;
+            //             //console.log("in movie_cut_info", this.lmovie_cut_info)
+            //         }).catch( error => { 
+            //             console.log('error: ' + error); 
+            //         });
+            // },
             reset_t0_t1() {
                 this.t0 = "00:00:00"
                 this.t0_valid = false 
@@ -205,7 +226,7 @@
             pos_from_end(dsec) {
                 return Math.trunc(this.lmovie_info.duration_ms / 1000 - 1 - dsec )
             },
-            get_frame(pos) {
+            get_frame_promise(pos) {
                 //console.log(`in load frame ... request ${pos}`)
                 return axios.post(`${Vue.prototype.$host}/frame`,
                     { 
@@ -215,15 +236,30 @@
                     { headers: {
                     'Content-type': 'application/json',
                     }
-                }).then((response) => {
-                    this.frame_name = response.data.frame + '?' + String(Math.random())
-                }).catch( error => { 
-                    console.log('error: ' + error); 
-                });
-            },
+                })
+            },            
+            // get_frame(pos) {
+            //     //console.log(`in load frame ... request ${pos}`)
+            //     return axios.post(`${Vue.prototype.$host}/frame`,
+            //         { 
+            //             pos_time: pos,
+            //             movie_name: this.lmovie
+            //         },
+            //         { headers: {
+            //         'Content-type': 'application/json',
+            //         }
+            //     }).then((response) => {
+            //         this.frame_name = response.data.frame + '?' + String(Math.random())
+            //     }).catch( error => { 
+            //         console.log('error: ' + error); 
+            //     });
+            // },
             docut() {
-                this.movie_cut_info()
-                msg = 
+                this.movie_cut_info_promise()
+                .then(response => {
+                    this.lmovie_cut_info = response.data;
+                    //console.log("in movie_cut_info", this.lmovie_cut_info)
+                    msg = 
 `
 Cut:
                 
@@ -234,49 +270,45 @@ Out: ${this.t1}
 Inplace: ${this.inplace}
 Reconstruct: ${!this.lmovie_cut_info.ap_available}
 `
-                console.log(msg)
-                    this.result_available = false
-                    this.eta_counter = 0
-                    myModalSlot.show()
-                    this.eta_counter_id = setInterval(function myTimer() { this.eta_counter += 1 }.bind(this), 1000);
-                    console.log(this.lmovie_cut_info)
-                    return axios.post(`${Vue.prototype.$host}/cut`,
-                        {   
-                            section: this.section, 
-                            movie_name: this.lmovie,
-                            ss: this.t0,
-                            to: this.t1,
-                            inplace: this.inplace,
-                            etaest: this.lmovie_cut_info.eta
-                        },
-                        { headers: { 'Content-type': 'application/json',}}
-                    ).then((response) => {
-                        clearInterval(this.eta_counter_id)
-                        this.result = response.data.result
-                        this.result_available = true
+                    console.log(msg)
+                        this.result_available = false
+                        this.eta_counter = 0
+                        myModalSlot.show()
+                        this.eta_counter_id = setInterval(function myTimer() { this.eta_counter += 1 }.bind(this), 1000);
+                        console.log(this.lmovie_cut_info)
+                        return axios.post(`${Vue.prototype.$host}/cut`,
+                            {   
+                                section: this.section, 
+                                movie_name: this.lmovie,
+                                ss: this.t0,
+                                to: this.t1,
+                                inplace: this.inplace,
+                                etaest: this.lmovie_cut_info.eta
+                            },
+                            { headers: { 'Content-type': 'application/json',}}
+                        ).then((response) => {
+                            clearInterval(this.eta_counter_id)
+                            this.result = response.data.result
+                            this.result_available = true
+                        }).catch( error => { 
+                            console.log('error: ' + error); 
+                        });
                     }).catch( error => { 
-                        console.log('error: ' + error); 
+                            console.log('error: ' + error); 
                     });
-            }
-        },
-        created() {
-            axios
-            .get(`${Vue.prototype.$host}/sections`)
-            .then(response => {
-                //console.log(response.data)
-                this.sections = response.data.sections;
-                this.section = response.data.section;
-                this.loadmovies()
-            }).catch( error => { 
-                console.log('error: ' + error); 
-            });
-            /* fetch(`${Vue.prototype.$host}/sections`)
-                .then(response => response.json())
-                .then(json => {
-                    this.sections = json.sections;
-                    this.section = json.section
+                }
+            },
+            created() {
+                axios
+                .get(`${Vue.prototype.$host}/sections`)
+                .then(response => {
+                    //console.log(response.data)
+                    this.sections = response.data.sections;
+                    this.section = response.data.section;
                     this.loadmovies()
-                }) */
-        },
-        delimiters: ['[[',']]']
-    })
+                }).catch( error => { 
+                    console.log('error: ' + error); 
+                });
+            },
+            delimiters: ['[[',']]']
+        })

@@ -102,7 +102,7 @@
         <div class="col badge bg-secondary" v-else><button class="btn btn-outline-secondary text-light btn-sm" disabled>Cut</button></div>
 
         <div class="col badge bg-light col-auto me-1"><button class="btn btn-outline-primary btn-sm" @click="lpos = 0">S</button></div>
-        <div class="col badge bg-light col-1 me-1"><button class="btn btn-outline-secondary btn-sm" @click="test" disabled>[[ Math.trunc(lpos / 60) ]] min</button></div>
+        <div class="col badge bg-light col-1 me-1"><button class="btn btn-outline-secondary btn-sm" @click="test" notdisabled>[[ Math.trunc(lpos / 60) ]] min</button></div>
         <div class="col badge bg-light col-auto me-1"><button class="btn btn-outline-primary btn-sm" @click="lpos = pos_from_end(0)">E</button></div>
 
     </div>
