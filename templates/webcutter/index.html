@@ -61,7 +61,7 @@
 
     <!-- section und movie selection START -->
     <div class="row g-2 mt-1 justify-content-lg-center">
-        <div class="form-floating col-6" id="vueSection">
+        <div class="col form-floating col-5">
             <select id="vueSectionID" v-model='section' class="form-select" @change="update_section">
                     <option v-for="sec in sections" v-bind:value="sec">
                         [[ sec ]]
@@ -70,14 +70,17 @@
             <label for="vueSectionID" >[[ totalsections ]] Sections</label>
         </div>
 
-        <div class="form-floating col-6" id="vueMovie">
+        <div class="col form-floating col-6">
             <select id="vueMovieID" v-model='movie' class="form-select" >
                 <option v-for="movie in movies" v-bind:value="movie">
                     [[ movie ]]
                 </option>                               
             </select>
             <label for="vueMovieID" >[[ totalmovies ]] recently added Movies</label>
-        </div>            
+        </div> 
+
+        <div class="col badge bg-light col-auto me-1 my-auto"><button class="btn btn-outline-primary" @click="force_update_section()">↺</button></div>
+           
     </div>
     <!-- section und movie selection ENDE -->
 

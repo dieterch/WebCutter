@@ -19,6 +19,8 @@ app= Flask(__name__)
 initial_section = plex.sections[0]
 initial_movie_key = 5
 initial_movie = initial_section.recentlyAdded()[initial_movie_key]
+
+global selection
 selection = { 
     'sections' : [s for s in plex.sections if s.type == 'movie'],
     'section' : initial_section,
@@ -30,10 +32,10 @@ selection = {
     }
 
 # section related stuff
-def _update_section(section_name):
+def _update_section(section_name, force=False):
     global selection
     #print(f"\n{selection['section'].title} != {section_name}, {(selection['section'].title != section_name)}") # beim ersten Aufruf kommt der Funktionsname zurück, nicht das Ergebnis => if clause ...
-    if ((selection['section'].title != section_name)): 
+    if ((selection['section'].title != section_name) or force): 
         sec = plex.server.library.section(section_name)
         mvs = sec.recentlyAdded()
         default_movie = mvs[initial_movie_key]
@@ -52,6 +54,13 @@ def update_section():
         _update_section(section_name)        
         print(f"update_section: {pf(request.json)}")
         return redirect(url_for('index'))
+
+@app.route("/force_update_section")
+def force_update_section():
+    global selection
+    _update_section(selection['section'].title, force=True)        
+    print(f"force_update_section.")
+    return 'force update section'
 
 @app.route("/sections")
 def get_sections():
@@ -173,15 +182,12 @@ def test():
 def testmodal():
     return render_template('testmodal.html')
 
-firstrun = True
 if __name__ == '__main__':
-    if firstrun:
-        firstrun = False
-        print('''
+    print('''
 \033[H\033[J
 ******************************************
 * WebCutter V0.01 (c)2022 Dieter Chvatal *
 ******************************************
-        ''')
-    #_update_section('Plex Recordings')
-    app.run(use_reloader=True, host='0.0.0.0', port=5000, debug=True)
+''')
+    #app.run(use_reloader=True, host='0.0.0.0', port=5000, debug=True, threaded=False) # um mount error(16): Device or resource busy Fehler zu vermeiden.
+    app.run(use_reloader=False, host='0.0.0.0', port=5000, debug=False, threaded=False) # um mount error(16): Device or resource busy Fehler zu vermeiden.

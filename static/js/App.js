@@ -125,6 +125,15 @@
                             console.log('error: ' + error); 
                     });
                 },
+            force_update_section() {
+                axios
+                    .get(`${Vue.prototype.$host}/force_update_section`)
+                    .then(response => {
+                        console.log(response.data)
+                    }).catch( error => { 
+                        console.log('error: ' + error); 
+                    });
+            },
             loadmovies() {
                 axios
                     .get(`${Vue.prototype.$host}/movies`)
