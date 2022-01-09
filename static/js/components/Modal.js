@@ -76,6 +76,7 @@ class VueModalSlot {
     constructor() {
         this.component = Vue.component(
                         'modalslot', {
+                            props: ['showclosebutton'],
                             template: `
                             <div class="modal fade" id="staticBackdropSlot" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
                                 <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
@@ -84,7 +85,7 @@ class VueModalSlot {
                                     <slot name="header">
                                     This is the default title!
                                     </slot>
-                                    <!--button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button-->
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" v-if="showclosebutton"></button>
                                     </div>
                                     <div class="modal-body">
                                         <slot name="body">

@@ -7,10 +7,10 @@
 <div id="vueApp">
 
     <!-- ANFANG -- Modal -->
-    <ModalSlot>
+    <ModalSlot :showclosebutton="show_close_button">
         <template v-slot:header>
         <h4 class="modal-title" id="staticBackdropLabelSlot">[[ movie ]]</h4>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" v-if="!cut_ok"></button>
+        <!--button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" v-if="show_close_button"></button-->
         </template>
     
         <template v-slot:body>

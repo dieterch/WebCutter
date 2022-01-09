@@ -189,5 +189,5 @@ if __name__ == '__main__':
 * WebCutter V0.01 (c)2022 Dieter Chvatal *
 ******************************************
 ''')
-    app.run(use_reloader=True, host='0.0.0.0', port=5000, debug=True, threaded=False)
-    #app.run(use_reloader=False, host='0.0.0.0', port=5000, debug=False, threaded=False) # um mount error(16): Device or resource busy Fehler zu vermeiden.
+    #app.run(use_reloader=True, host='0.0.0.0', port=5000, debug=True, threaded=False)
+    app.run(use_reloader=False, host='0.0.0.0', port=5000, debug=False, threaded=False) # um mount error(16): Device or resource busy Fehler zu vermeiden.

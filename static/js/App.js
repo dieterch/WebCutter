@@ -37,7 +37,8 @@
             inplace: false,            
             frame_name: '',
             result_available: false,
-            result:''
+            result:'',
+            show_close_button: false
         },
         computed: {
             totalsections() {
@@ -114,6 +115,7 @@
         },
         methods: {
             test() {
+                this.show_close_button = true
                 this.movie_cut_info_promise()
                 .then(response => {
                     this.lmovie_cut_info = response.data;
@@ -255,6 +257,7 @@
             //     });
             // },
             docut() {
+                this.show_close_button = false
                 this.movie_cut_info_promise()
                 .then(response => {
                     this.lmovie_cut_info = response.data;
@@ -268,7 +271,7 @@ movie: '${this.lmovie}'
 In: ${this.t0}
 Out: ${this.t1}
 Inplace: ${this.inplace}
-Reconstruct: ${!this.lmovie_cut_info.ap_available}
+Reconstruct: ${!this.lmovie_cut_info.apsc}
 `
                     console.log(msg)
                         this.result_available = false
