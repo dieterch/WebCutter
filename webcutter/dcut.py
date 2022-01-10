@@ -1,4 +1,3 @@
-from logging import exception
 from webcutter.dplex import PlexInterface
 import os
 import time
@@ -115,7 +114,7 @@ class CutterInterface:
 		try:
 			self.mount(movie)
 			return os.path.exists(self._pathname(movie)+'.ap')
-		except Exception as e:
+		except FileNotFoundError as e:
 			print(str(e))
 		finally:
 			self.umount()
@@ -161,7 +160,7 @@ class CutterInterface:
 		if ((inplace == False) and (os.path.exists(self._cutname(movie)))):
 			try:
 				os.remove(self._cutname(movie))
-			except exception as e:
+			except FileNotFoundError as e:
 				print(str(e))
 				raise e
 			restxt += f"{self._cutfilename(movie)} existed already, file deleted ... \n\n"
